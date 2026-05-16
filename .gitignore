@@ -1,0 +1,52 @@
+# Environment & secrets
+.env
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Data & scraper (not open sourced)
+scraper/
+indexer/
+
+# GraphRAG runtime
+graphrag_project/input/
+graphrag_project/input_remaining/
+graphrag_project/output/
+graphrag_project/cache/
+graphrag_project/logs/
+graphrag_project/deploy/
+graphrag_project/lancedb/
+
+# Test & debug
+graphrag_project/test_deepseek.py
+graphrag_project/find_nan_texts.py
+graphrag_project/graph_demo.html
+
+# Cloudflare Wrangler
+.wrangler/
+
+# Claude Code
+.claude/
+
+# Internal docs
+GraphRAG*.md
+农药知识库RAG技术方案.md
+
+# Scraper logs
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GraphRAG Entity Viewer</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:"Microsoft YaHei",sans-serif; background:#0f0f1a; color:#ddd; display:flex; height:100vh; overflow:hidden; }
+
+/* Left Panel */
+#left-panel {
+  width: 280px; min-width: 280px; background: #161625; border-right: 1px solid #2a2a40;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#left-panel h2 { padding: 16px; font-size: 16px; color: #fff; border-bottom: 1px solid #2a2a40; }
+#search-box {
+  margin: 10px 12px; padding: 8px 12px; background: #1e1e35; border: 1px solid #3a3a55;
+  border-radius: 6px; color: #fff; font-size: 14px; outline: none;
+}
+#search-box:focus { border-color: #5a7aff; }
+#search-box::placeholder { color: #666; }
+
+#type-filters { padding: 8px 12px; border-bottom: 1px solid #2a2a40; }
+.filter-item { display: flex; align-items: center; padding: 3px 0; cursor: pointer; font-size: 13px; }
+.filter-item input { margin-right: 8px; }
+.filter-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; display: inline-block; }
+.filter-count { margin-left: auto; color: #666; font-size: 12px; }
+
+#entity-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+.entity-group-title {
+  padding: 6px 12px; font-size: 12px; color: #888; text-transform: uppercase;
+  position: sticky; top: 0; background: #161625;
+}
+.entity-item {
+  padding: 5px 12px 5px 24px; font-size: 13px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.entity-item:hover { background: #1e1e35; }
+
+/* Graph */
+#graph-container { flex: 1; position: relative; }
+#graph { width: 100%; height: 100%; }
+#loading {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  font-size: 18px; color: #888;
+}
+#stats {
+  position: absolute; top: 12px; left: 12px; font-size: 12px; color: #666;
+  background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 4px;
+}
+
+/* Right Panel */
+#right-panel {
+  width: 320px; min-width: 320px; background: #161625; border-left: 1px solid #2a2a40;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#detail-header { padding: 16px; font-size: 16px; color: #fff; border-bottom: 1px solid #2a2a40; }
+#detail-content { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.detail-section { margin-bottom: 16px; }
+.detail-label { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+.detail-value { font-size: 14px; line-height: 1.5; }
+.detail-type-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px;
+  color: #fff; margin-top: 4px;
+}
+.rel-item {
+  padding: 8px; margin: 4px 0; background: #1e1e35; border-radius: 6px;
+  font-size: 13px; cursor: pointer; line-height: 1.4;
+}
+.rel-item:hover { background: #252545; }
+.rel-arrow { color: #5a7aff; margin: 0 4px; }
+.rel-desc { color: #999; font-size: 12px; display: block; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div id="left-panel">
+  <h2>Entity Explorer</h2>
+  <input id="search-box" type="text" placeholder="Search entities...">
+  <div id="type-filters"></div>
+  <div id="entity-list"></div>
+</div>
+
+<div id="graph-container">
+  <div id="graph"></div>
+  <div id="loading">Loading graph data...</div>
+  <div id="stats"></div>
+</div>
+
+<div id="right-panel">
+  <div id="detail-header">Details</div>
+  <div id="detail-content">
+    <p style="color:#666; font-size:13px;">Click a node or edge to view details.</p>
+  </div>
+</div>
+
+<script>
+const TYPE_COLORS = {
+  "PRODUCT":      "#e74c3c",
+  "ORGANIZATION": "#3498db",
+  "CHEMICAL":     "#2ecc71",
+  "FORMULATION":  "#f39c12",
+  "CROP":         "#27ae60",
+  "PEST":         "#e67e22",
+  "ID":           "#9b59b6",
+  "DATE":         "#8e44ad",
+  "CONCEPT":      "#1abc9c",
+};
+const DEFAULT_COLOR = "#7f8c8d";
+
+function getColor(type) {
+  return TYPE_COLORS[type] || TYPE_COLORS[type?.toUpperCase()] || DEFAULT_COLOR;
+}
+
+let network = null;
+let allNodes = null;
+let allEdges = null;
+let graphData = null;
+let hiddenTypes = new Set();
+
+async function init() {
+  try {
+    const resp = await fetch("output/graph_data.json");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    graphData = await resp.json();
+  } catch (e) {
+    document.getElementById("loading").textContent = `Failed to load data: ${e.message}`;
+    return;
+  }
+
+  document.getElementById("loading").style.display = "none";
+
+  const degreeMax = Math.max(...graphData.nodes.map(n => n.degree), 1);
+
+  const nodesArr = graphData.nodes.map(n => ({
+    id: n.id,
+    label: n.label,
+    _type: n.type,
+    _description: n.description,
+    _frequency: n.frequency,
+    _degree: n.degree,
+    size: 8 + Math.sqrt(n.degree / degreeMax) * 30,
+    color: {
+      background: getColor(n.type),
+      border: getColor(n.type),
+      highlight: { background: "#fff", border: getColor(n.type) },
+    },
+    font: { color: "#eee", size: 11, face: "Microsoft YaHei" },
+    borderWidth: 1.5,
+  }));
+
+  const weightMax = Math.max(...graphData.edges.map(e => e.weight), 1);
+
+  const edgesArr = graphData.edges.map((e, i) => ({
+    id: i,
+    from: e.from,
+    to: e.to,
+    _source_label: e.source_label,
+    _target_label: e.target_label,
+    _label: e.label,
+    _weight: e.weight,
+    width: 0.5 + (e.weight / weightMax) * 3,
+    arrows: "to",
+    color: { color: "rgba(150,150,180,0.4)", highlight: "#5a7aff" },
+    smooth: { type: "continuous" },
+  }));
+
+  allNodes = new vis.DataSet(nodesArr);
+  allEdges = new vis.DataSet(edgesArr);
+
+  const container = document.getElementById("graph");
+  network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, {
+    physics: {
+      solver: "barnesHut",
+      barnesHut: { gravitationalConstant: -3000, centralGravity: 0.2, springLength: 120, springConstant: 0.02 },
+      stabilization: { iterations: 150, updateInterval: 25 },
+    },
+    interaction: { hover: true, tooltipDelay: 200, zoomView: true, dragView: true, hideEdgesOnDrag: true },
+    layout: { improvedLayout: false },
+  });
+
+  network.once("stabilizationIterationsDone", () => {
+    network.setOptions({ physics: { enabled: false } });
+  });
+
+  network.on("click", onNetworkClick);
+
+  document.getElementById("stats").textContent =
+    `${graphData.nodes.length} entities | ${graphData.edges.length} relationships`;
+
+  buildTypeFilters();
+  buildEntityList();
+  setupSearch();
+}
+
+function buildTypeFilters() {
+  const counts = {};
+  graphData.nodes.forEach(n => { counts[n.type] = (counts[n.type] || 0) + 1; });
+
+  const container = document.getElementById("type-filters");
+  const types = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
+
+  types.forEach(type => {
+    const div = document.createElement("div");
+    div.className = "filter-item";
+    div.innerHTML = `
+      <input type="checkbox" checked data-type="${type}">
+      <span class="filter-dot" style="background:${getColor(type)}"></span>
+      ${type}
+      <span class="filter-count">${counts[type]}</span>
+    `;
+    div.querySelector("input").addEventListener("change", onFilterChange);
+    container.appendChild(div);
+  });
+}
+
+function onFilterChange() {
+  hiddenTypes.clear();
+  document.querySelectorAll("#type-filters input").forEach(cb => {
+    if (!cb.checked) hiddenTypes.add(cb.dataset.type);
+  });
+
+  allNodes.forEach(node => {
+    allNodes.update({ id: node.id, hidden: hiddenTypes.has(node._type) });
+  });
+
+  allEdges.forEach(edge => {
+    const fromNode = allNodes.get(edge.from);
+    const toNode = allNodes.get(edge.to);
+    const hidden = !fromNode || !toNode || fromNode.hidden || toNode.hidden;
+    allEdges.update({ id: edge.id, hidden });
+  });
+}
+
+function buildEntityList(filter) {
+  const container = document.getElementById("entity-list");
+  container.innerHTML = "";
+
+  const grouped = {};
+  graphData.nodes.forEach(n => {
+    if (filter && !n.label.includes(filter)) return;
+    if (!grouped[n.type]) grouped[n.type] = [];
+    grouped[n.type].push(n);
+  });
+
+  Object.keys(grouped).sort().forEach(type => {
+    const title = document.createElement("div");
+    title.className = "entity-group-title";
+    title.textContent = `${type} (${grouped[type].length})`;
+    container.appendChild(title);
+
+    grouped[type].sort((a,b) => b.degree - a.degree).forEach(n => {
+      const item = document.createElement("div");
+      item.className = "entity-item";
+      item.textContent = n.label;
+      item.addEventListener("click", () => focusNode(n.id));
+      container.appendChild(item);
+    });
+  });
+}
+
+function setupSearch() {
+  let timer;
+  document.getElementById("search-box").addEventListener("input", e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = e.target.value.trim();
+      buildEntityList(q || undefined);
+      if (q) {
+        const match = graphData.nodes.find(n => n.label.includes(q));
+        if (match) focusNode(match.id);
+      }
+    }, 300);
+  });
+}
+
+function focusNode(nodeId) {
+  network.focus(nodeId, { scale: 1.5, animation: { duration: 400, easingFunction: "easeInOutQuad" } });
+  network.selectNodes([nodeId]);
+  showNodeDetail(nodeId);
+}
+
+function onNetworkClick(params) {
+  if (params.nodes.length > 0) {
+    showNodeDetail(params.nodes[0]);
+  } else if (params.edges.length > 0) {
+    showEdgeDetail(params.edges[0]);
+  }
+}
+
+function showNodeDetail(nodeId) {
+  const node = allNodes.get(nodeId);
+  if (!node) return;
+
+  const rels = [];
+  allEdges.forEach(edge => {
+    if (edge.from === nodeId || edge.to === nodeId) {
+      const other = edge.from === nodeId ? allNodes.get(edge.to) : allNodes.get(edge.from);
+      const direction = edge.from === nodeId ? "out" : "in";
+      rels.push({ edge, other, direction });
+    }
+  });
+
+  const html = `
+    <div class="detail-section">
+      <div class="detail-label">Entity</div>
+      <div class="detail-value" style="font-size:18px; font-weight:bold;">${node.label}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Type</div>
+      <span class="detail-type-badge" style="background:${getColor(node._type)}">${node._type}</span>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Description</div>
+      <div class="detail-value">${node._description || "N/A"}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Stats</div>
+      <div class="detail-value">Degree: ${node._degree} | Frequency: ${node._frequency}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Relationships (${rels.length})</div>
+      ${rels.map(r => `
+        <div class="rel-item" onclick="focusNode(${r.other?.id})">
+          ${r.direction === "out"
+            ? `${node.label} <span class="rel-arrow">&rarr;</span> ${r.other?.label || "?"}`
+            : `${r.other?.label || "?"} <span class="rel-arrow">&rarr;</span> ${node.label}`}
+          <span class="rel-desc">${r.edge._label || ""}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  document.getElementById("detail-header").textContent = node.label;
+  document.getElementById("detail-content").innerHTML = html;
+}
+
+function showEdgeDetail(edgeId) {
+  const edge = allEdges.get(edgeId);
+  if (!edge) return;
+  const fromNode = allNodes.get(edge.from);
+  const toNode = allNodes.get(edge.to);
+
+  const html = `
+    <div class="detail-section">
+      <div class="detail-label">Relationship</div>
+      <div class="detail-value" style="font-size:16px;">
+        <span style="color:${getColor(fromNode?._type)}">${fromNode?.label || "?"}</span>
+        <span class="rel-arrow">&rarr;</span>
+        <span style="color:${getColor(toNode?._type)}">${toNode?.label || "?"}</span>
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Description</div>
+      <div class="detail-value">${edge._label || "N/A"}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">Weight</div>
+      <div class="detail-value">${edge._weight}</div>
+    </div>
+  `;
+
+  document.getElementById("detail-header").textContent = "Relationship";
+  document.getElementById("detail-content").innerHTML = html;
+}
+
+init();
+</script>
+</body>
+</html>
