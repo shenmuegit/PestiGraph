@@ -144,7 +144,7 @@ def write_bench_settings(embedding: str):
     cfg["output_storage"]["base_dir"] = "output"
     cfg["reporting"]["base_dir"] = "logs"
     cfg["cache"]["storage"]["base_dir"] = "cache"
-    cfg["vector_store"]["db_uri"] = "output\\lancedb"
+    cfg["vector_store"]["db_uri"] = "output/lancedb"
 
     with open(BENCH_SETTINGS, "w", encoding="utf-8") as f:
         yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
