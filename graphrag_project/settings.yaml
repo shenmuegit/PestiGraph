@@ -7,10 +7,10 @@
 completion_models:
   default_completion_model:
     model_provider: openai
-    model: deepseek-v4-flash
-    api_base: https://api.deepseek.com
+    model: mimo-v2.5-pro
+    api_base: https://token-plan-cn.xiaomimimo.com/v1
     auth_method: api_key
-    api_key: ${DEEPSEEK_API_KEY}
+    api_key: ${MIMO_API_KEY}
     retry:
       type: exponential_backoff
     rate_limit:
@@ -37,7 +37,7 @@ input:
 
 chunking:
   type: tokens
-  size: 3000
+  size: 3500
   overlap: 0
   encoding_model: o200k_base
 
@@ -88,7 +88,7 @@ extract_graph_nlp:
     extractor_type: syntactic_parser # [regex_english, syntactic_parser, cfg]
 
 cluster_graph:
-  max_cluster_size: 10
+  max_cluster_size: 30
 
 extract_claims:
   enabled: false
@@ -122,6 +122,11 @@ global_search:
   map_prompt: "prompts/global_search_map_system_prompt.txt"
   reduce_prompt: "prompts/global_search_reduce_system_prompt.txt"
   knowledge_prompt: "prompts/global_search_knowledge_system_prompt.txt"
+  dynamic_search_threshold: 1
+  dynamic_search_keep_parent: false
+  dynamic_search_num_repeats: 1
+  dynamic_search_use_summary: false
+  dynamic_search_max_level: 2
 
 drift_search:
   completion_model_id: default_completion_model
