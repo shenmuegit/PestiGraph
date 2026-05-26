@@ -47,6 +47,7 @@ _map_total = 0
 _current_stage = "idle"     # idle | route | load | map | reduce | llm | done | error
 _current_method = "global"  # global | local | drift | basic
 _query_elapsed = 0.0
+_query_start_time = 0.0
 
 
 def _log(msg: str):
@@ -58,11 +59,11 @@ def _log(msg: str):
 
 
 def _get_log_html() -> str:
-    return "\n".join(_query_log)
-
-
-def _get_log_html() -> str:
     """生成带可视化流水线的日志 HTML"""
+    if _current_stage in ("idle", "done", "error"):
+        elapsed = _query_elapsed
+    else:
+        elapsed = time.time() - _query_start_time if _query_start_time > 0 else 0.0
     return _build_pipeline_html(
         stage=_current_stage,
         method=_current_method,
@@ -70,7 +71,7 @@ def _get_log_html() -> str:
         map_total=_map_total,
         llm_calls=_llm_call_count,
         tokens=_llm_total_tokens,
-        elapsed=_query_elapsed,
+        elapsed=elapsed,
         log_lines=list(_query_log),
     )
 
@@ -429,7 +430,7 @@ def chat(message: str, history: list,
          response_type_label: str = "详细多段落") -> str:
     """聊天回调：智能路由 + 查询"""
     global _llm_call_count, _llm_total_tokens, _map_call_count, _map_total
-    global _current_stage, _current_method, _query_elapsed
+    global _current_stage, _current_method, _query_elapsed, _query_start_time
 
     if not message.strip():
         return "请输入您的问题。"
@@ -440,6 +441,7 @@ def chat(message: str, history: list,
     _map_call_count = 0
     _map_total = 0
     _query_elapsed = 0.0
+    _query_start_time = time.time()
     _query_log.clear()
 
     # 阶段 1: 路由
@@ -875,6 +877,29 @@ flowchart TD
 <tr><td><code>max_cluster_size</code></td><td>30</td><td>单个社区最大节点数，越小社区越多、层级越深</td></tr>
 <tr><td><code>max_input_length</code></td><td>8000</td><td>单份报告的 token 上限，超过则由子社区替代</td></tr>
 </table>
+</div>
+
+<!-- ====== 8. 数据规模与策略 ====== -->
+<h2>8. 数据规模与策略选择</h2>
+<div class="card">
+<p>全量扫描和动态筛选各有适用场景，关键变量是<strong>社区报告数量</strong>：</p>
+<table>
+<tr><th>数据规模</th><th>社区报告数</th><th>全量 Map-Reduce</th><th>Dynamic Selection</th></tr>
+<tr><td>小（~200 篇文档）</td><td>~81</td><td>✅ 11 次并发 LLM，几十秒完成</td><td>❌ 根社区太少，过滤太激进，丢信息</td></tr>
+<tr><td>中（~2000 篇文档）</td><td>~500</td><td>⚠️ ~60 次 LLM，1~2 分钟</td><td>✅ 筛到 50~100，效果好</td></tr>
+<tr><td>大（~5 万篇文档）</td><td>数千</td><td>❌ 数百次 LLM，不可行</td><td>✅ 筛到 100~200，必须启用</td></tr>
+</table>
+<h3>当前系统的自动策略</h3>
+<pre class="mermaid">
+%%{init:{'theme':'dark','themeVariables':{'primaryColor':'#3d59a1','primaryTextColor':'#c0caf5','primaryBorderColor':'#545c7e','lineColor':'#545c7e','secondaryColor':'#1a1b26','tertiaryColor':'#24283b','background':'#1a1b26','mainBkg':'#1a1b26','nodeBorder':'#545c7e','clusterBkg':'#1a1b26','clusterBorder':'#3d59a1','titleColor':'#c0caf5','edgeLabelBackground':'#1a1b26','nodeTextColor':'#c0caf5'}}}%%
+flowchart LR
+    RPT["社区报告数 = __REPORT_N__"] --> CHK{"报告数 > 200?"}
+    CHK -->|"否（当前）"| FULL["全量 Map-Reduce<br/>扫描所有报告"]
+    CHK -->|"是（扩容后）"| DYN["Dynamic Selection<br/>先筛选再 Map"]
+    style FULL fill:#9ece6a,stroke:#545c7e,color:#1a1b26
+    style DYN fill:#3d59a1,stroke:#545c7e,color:#c0caf5
+</pre>
+<p>代码逻辑：<code>dynamic_community_selection = report_count > 200</code>，无需手动切换。</p>
 </div>
 
 <script>mermaid.initialize({startOnLoad:true,theme:'dark',securityLevel:'loose'});</script>
