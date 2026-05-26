@@ -1,0 +1,7 @@
+graphrag==3.0.9
+gradio>=5.0
+litellm
+pandas
+pyarrow
+lancedb
+tiktoken
