@@ -228,7 +228,7 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
 .nd{{display:flex;flex-direction:column;align-items:center;padding:6px 8px;border:1.5px solid #3a3a55;border-radius:8px;background:#1a1b26;min-width:62px;transition:all .3s;position:relative;}}
 .nd-wide{{min-width:90px;}}
 .nd-icon{{font-size:16px;line-height:1;}}
-.nd-text{{font-size:10.5px;margin-top:2px;white-space:nowrap;color:#888;}}
+.nd-text{{font-size:10.5px;margin-top:2px;white-space:nowrap;color:#c0caf5;}}
 .nd-sub{{font-size:9px;color:#7aa2f7;margin-top:1px;}}
 /* 进度条 */
 .nd-bar{{width:70px;height:3px;background:#2a2a40;border-radius:2px;margin-top:3px;overflow:hidden;}}
@@ -254,15 +254,15 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
 .fan-spacer{{width:202px;flex-shrink:0;}}
 .fan-bracket{{width:2px;height:28px;border-left:2px dashed #3a3a55;margin:0 8px;}}
 .fan-items{{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;}}
-.fan-item{{font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid #3a3a55;background:#1a1b26;color:#888;white-space:nowrap;}}
+.fan-item{{font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid #3a3a55;background:#1a1b26;color:#c0caf5;white-space:nowrap;}}
 .fan-item.nd-done{{border-color:#9ece6a;color:#9ece6a;background:#1a2520;}}
 .fan-item.nd-active{{border-color:#7aa2f7;color:#7aa2f7;background:#1e2540;animation:glow 2s infinite;}}
 .fan-item.nd-run{{border-color:#565f89;color:#7aa2f7;opacity:.8;}}
 /* 统计与日志 */
-.st{{text-align:center;font-size:11px;color:#888;padding:6px 0 6px;border-top:1px solid #2a2a40;border-bottom:1px solid #2a2a40;margin:6px 0;}}
+.st{{text-align:center;font-size:11px;color:#c0c0d0;padding:6px 0 6px;border-top:1px solid #2a2a40;border-bottom:1px solid #2a2a40;margin:6px 0;}}
 .st b{{color:#c0caf5;}}
 .la{{max-height:340px;overflow-y:auto;padding:2px 0;}}
-.ll{{font-size:11px;line-height:1.55;padding:0 4px;font-family:"Cascadia Code","Consolas",monospace;color:#9aa5ce;white-space:pre-wrap;word-break:break-all;}}
+.ll{{font-size:11px;line-height:1.55;padding:0 4px;font-family:"Cascadia Code","Consolas",monospace;color:#e0e0f0;white-space:pre-wrap;word-break:break-all;}}
 </style>
 {flow_html}
 {stats_html}
