@@ -427,7 +427,8 @@ RESPONSE_TYPE_MAP = {
 
 def chat(message: str, history: list,
          community_level: int = 2,
-         response_type_label: str = "详细多段落") -> str:
+         response_type_label: str = "详细多段落",
+         mode_override: str = "自动") -> str:
     """聊天回调：智能路由 + 查询"""
     global _llm_call_count, _llm_total_tokens, _map_call_count, _map_total
     global _current_stage, _current_method, _query_elapsed, _query_start_time
@@ -446,15 +447,23 @@ def chat(message: str, history: list,
 
     # 阶段 1: 路由
     _current_stage = "route"
-    method, matched_kw = route(message)
-    _current_method = method
-    mode_label = MODE_LABELS.get(method, method)
-    response_type = RESPONSE_TYPE_MAP.get(response_type_label, "multiple paragraphs")
-    _log(f"📋 收到问题: {message}")
-    if matched_kw:
-        _log(f"🔀 智能路由 → {mode_label} ({method})  匹配关键词: '{matched_kw}'")
+    _MODE_OVERRIDE_MAP = {"全局汇总": "global", "精确检索": "local", "关联分析": "drift", "基础检索": "basic"}
+    if mode_override != "自动" and mode_override in _MODE_OVERRIDE_MAP:
+        method = _MODE_OVERRIDE_MAP[mode_override]
+        matched_kw = ""
+        _current_method = method
+        mode_label = MODE_LABELS.get(method, method)
+        _log(f"📋 收到问题: {message}")
+        _log(f"🔀 手动指定模式 → {mode_label} ({method})")
     else:
-        _log(f"🔀 智能路由 → {mode_label} ({method})  未匹配全局/关联词，走精确检索")
+        method, matched_kw = route(message)
+        _current_method = method
+        mode_label = MODE_LABELS.get(method, method)
+        _log(f"📋 收到问题: {message}")
+        if matched_kw:
+            _log(f"🔀 智能路由 → {mode_label} ({method})  匹配关键词: '{matched_kw}'")
+        else:
+            _log(f"🔀 智能路由 → {mode_label} ({method})  未匹配全局/关联词，走精确检索")
     _log(f"⚙️ 参数: 社区层级={community_level}, 回答格式={response_type_label}")
 
     try:
@@ -1124,8 +1133,15 @@ def build_ui() -> gr.Blocks:
                                 lines=1,
                             )
                             send_btn = gr.Button("发送", variant="primary", scale=1)
+                            clear_btn = gr.Button("清空", variant="secondary", scale=1)
                         with gr.Accordion("查询参数", open=False):
                             with gr.Row():
+                                mode_dd = gr.Dropdown(
+                                    choices=["自动", "全局汇总", "精确检索", "关联分析", "基础检索"],
+                                    value="自动",
+                                    label="查询模式",
+                                    info="默认自动路由，也可手动指定",
+                                )
                                 level_slider = gr.Slider(
                                     minimum=0, maximum=3, step=1, value=2,
                                     label="社区层级 (community_level)",
@@ -1154,11 +1170,11 @@ def build_ui() -> gr.Blocks:
                         )
                         log_timer = gr.Timer(value=1, active=False)
 
-                def _user_submit(message, history, community_level, response_type_label):
+                def _user_submit(message, history, community_level, response_type_label, mode_override):
                     if not message.strip():
                         return "", history, _get_log_html()
                     history = history + [{"role": "user", "content": message}]
-                    reply = chat(message, history, community_level, response_type_label)
+                    reply = chat(message, history, community_level, response_type_label, mode_override)
                     history = history + [{"role": "assistant", "content": reply}]
                     return "", history, _get_log_html()
 
@@ -1182,7 +1198,7 @@ def build_ui() -> gr.Blocks:
                         outputs=[log_timer, log_box],
                     ).then(
                         fn=_user_submit,
-                        inputs=[msg_input, chatbot, level_slider, response_type_dd],
+                        inputs=[msg_input, chatbot, level_slider, response_type_dd, mode_dd],
                         outputs=[msg_input, chatbot, log_box],
                     ).then(
                         fn=lambda: gr.Timer(active=False),
@@ -1194,6 +1210,19 @@ def build_ui() -> gr.Blocks:
                     fn=_poll_log,
                     inputs=[],
                     outputs=[log_box],
+                )
+
+                def _clear_chat():
+                    global _current_stage, _query_elapsed
+                    _query_log.clear()
+                    _current_stage = "idle"
+                    _query_elapsed = 0.0
+                    return [], _get_log_html()
+
+                clear_btn.click(
+                    fn=_clear_chat,
+                    inputs=[],
+                    outputs=[chatbot, log_box],
                 )
 
             # Tab 2: 知识图谱浏览器
