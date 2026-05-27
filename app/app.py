@@ -464,6 +464,7 @@ def chat(message: str, history: list,
             _log(f"🔀 智能路由 → {mode_label} ({method})  匹配关键词: '{matched_kw}'")
         else:
             _log(f"🔀 智能路由 → {mode_label} ({method})  未匹配全局/关联词，走精确检索")
+    response_type = RESPONSE_TYPE_MAP.get(response_type_label, "multiple paragraphs")
     _log(f"⚙️ 参数: 社区层级={community_level}, 回答格式={response_type_label}")
 
     try:
