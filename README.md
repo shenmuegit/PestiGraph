@@ -50,7 +50,7 @@ graph TD
 
 - Python 3.10+
 - [Ollama](https://ollama.com/) (本地运行 BGE-M3 嵌入模型)
-- DeepSeek API Key (用于 LLM 推理)
+- [MiMo API Key](https://platform.xiaomimimo.com/) (用于 LLM 推理)
 
 ## 快速开始
 
@@ -72,7 +72,7 @@ ollama serve
 ```bash
 cd graphrag_project
 cp .env.example .env
-# 编辑 .env，填入你的 DeepSeek API Key
+# 编辑 .env，填入你的 MiMo API Key
 ```
 
 ### 4. 准备输入数据
@@ -149,14 +149,14 @@ agriculture-rga/
 
 | 配置项 | 当前值 | 说明 |
 |--------|--------|------|
-| LLM | deepseek-v4-flash | 实体抽取、社区报告生成 |
+| LLM | mimo-v2.5-pro | 实体抽取、社区报告生成 |
 | Embedding | bge-m3 (Ollama) | 本地向量嵌入，1024 维 |
 | Chunk Size | 3000 tokens | 大于最大文档长度，保证不切分 |
 | Entity Types | 农药产品、有效成分、作物等 8 类 | 领域定制实体类型 |
 
 ## 已知问题
 
-- **DeepSeek 不支持 json_schema**: 需要使用 `response_format_json_object=True` 替代 Pydantic 结构化输出
+- **部分 LLM 不支持 json_schema**: 需要使用 `response_format_json_object=True` 替代 Pydantic 结构化输出
 - **Ollama BGE-M3 偶发 NaN**: 极少数中文文本会导致嵌入向量包含 NaN，已在嵌入层添加零向量兜底
 
 ## License

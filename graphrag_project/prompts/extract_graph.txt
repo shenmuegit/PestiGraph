@@ -6,15 +6,26 @@ Next, report all relationships among the identified entities.
 -Steps-
 1. Identify all entities. For each identified entity, extract the following information:
 - entity_name: Name of the entity, capitalized
-- entity_type: Suggest several labels or categories for the entity. The categories should not be specific, but should be as general as possible.
-- entity_description: Comprehensive description of the entity's attributes and activities
+- entity_type: One of the following types ONLY: PRODUCT, CHEMICAL, ORGANIZATION, CROP, PEST, FORMULATION, ID, DATE, CONCEPT, METHOD
+  - PRODUCT: 农药产品（如 啶氧菌酯·溴菌腈、高效氯氟氰菊酯）
+  - CHEMICAL: 农药有效成分/化学物质（如 啶氧菌酯、莠去津）
+  - ORGANIZATION: 企业/组织/登记证持有人（如 江西中迅农化有限公司）
+  - CROP: 作物/使用场所（如 西瓜、春玉米田、甘蓝）
+  - PEST: 防治对象/病虫草害（如 炭疽病、菜青虫、一年生杂草）
+  - FORMULATION: 剂型（如 水乳剂、悬浮剂、可湿性粉剂）
+  - ID: 登记证号等标识符（如 PD20201068）
+  - DATE: 日期/时间点（如 2020-12-25）
+  - CONCEPT: 使用限制、安全间隔期、毒性等级等概念
+  - METHOD: 施用方式/方法（如 喷雾、灌根、土壤处理）
+  Do NOT invent new types. Do NOT use Chinese type names. Always use the English type name exactly as listed above.
+- entity_description: Description of the entity's inherent/universal attributes only. Do NOT include context-specific quantitative data (such as concentration percentages, dosage amounts, interval days, application frequency) in the entity description — those belong in relationship descriptions.
 Format each entity as ("entity"<|><entity_name><|><entity_type><|><entity_description>)
 
 2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
 For each pair of related entities, extract the following information:
 - source_entity: name of the source entity, as identified in step 1
 - target_entity: name of the target entity, as identified in step 1
-- relationship_description: explanation as to why you think the source entity and the target entity are related to each other
+- relationship_description: explanation of the relationship, MUST include all relevant quantitative data (concentration/含量, dosage/用药量, interval/安全间隔期, frequency/施药次数, dilution/稀释倍数, etc.) that describes this specific pairing
 - relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
 Format each relationship as ("relationship"<|><source_entity><|><target_entity><|><relationship_description><|><relationship_strength>)
 
@@ -80,89 +91,69 @@ PD20201068
 /
 ------------------------
 output:
-("entity"<|>江西中迅农化有限公司<|>ORGANIZATION|登记证持有人，负责该农药产品的注册和生产，公司位于江西省）
+("entity"<|>江西中迅农化有限公司<|>ORGANIZATION|登记证持有人，负责农药产品的注册和生产，公司位于江西省）
 ##
-("entity"<|>啶氧菌酯·溴菌腈<|>PRODUCT|农药名称，是一种由啶氧菌酯和溴菌腈混配而成的杀菌剂水乳剂，总有效成分含量为30%）
+("entity"<|>啶氧菌酯·溴菌腈<|>PRODUCT|农药产品，是一种由啶氧菌酯和溴菌腈混配而成的杀菌剂，具有铲除、保护、渗透和内吸作用）
 ##
-("entity"<|>啶氧菌酯<|>CHEMICAL|有效成分之一，具有内吸、保护和铲除作用，含量为10%）
+("entity"<|>啶氧菌酯<|>CHEMICAL|农药有效成分，属于甲氧基丙烯酸酯类杀菌剂，具有内吸和保护作用）
 ##
-("entity"<|>溴菌腈<|>CHEMICAL|有效成分之一，具有保护、渗透作用，含量为20%）
+("entity"<|>溴菌腈<|>CHEMICAL|农药有效成分，具有保护和渗透作用）
 ##
-("entity"<|>水乳剂<|>FORMULATION|剂型，是一种农药加工形态，用于稀释后喷雾）
+("entity"<|>水乳剂<|>FORMULATION|农药剂型，水包油型乳液制剂，用于稀释后喷雾施用）
 ##
-("entity"<|>西瓜<|>CROP|作物，农药登记用于防治西瓜上的炭疽病）
+("entity"<|>西瓜<|>CROP|蔬果类作物）
 ##
-("entity"<|>炭疽病<|>PEST|防治对象，由真菌引起的西瓜病害）
+("entity"<|>炭疽病<|>PEST|由真菌引起的植物病害，危害多种瓜果蔬菜）
 ##
-("entity"<|>PD20201068<|>ID|农药登记证号，是产品在中国合法登记的官方编号）
+("entity"<|>PD20201068<|>ID|农药登记证号，产品在中国合法登记的官方编号）
 ##
-("entity"<|>2020-12-25<|>DATE|核准日期，农药标签首次获得批准的日期）
-##
-("entity"<|>14天<|>CONCEPT|安全间隔期，西瓜最后一次施药到收获必须间隔的天数）
-##
-("entity"<|>每季作物最多施药2次<|>CONCEPT|使用限制，标注整个生长季节的最大施药次数）
+("entity"<|>喷雾<|>施用方式|将药液雾化后均匀喷洒的施药方法）
 ##
 ("relationship"<|>江西中迅农化有限公司<|>啶氧菌酯·溴菌腈<|>江西中迅农化有限公司是啶氧菌酯·溴菌腈产品的登记证持有人<|>9）
 ##
-("relationship"<|>啶氧菌酯·溴菌腈<|>啶氧菌酯<|>啶氧菌酯·溴菌腈包含有效成分啶氧菌酯<|>8）
+("relationship"<|>啶氧菌酯·溴菌腈<|>啶氧菌酯<|>含有有效成分啶氧菌酯，含量10%<|>9）
 ##
-("relationship"<|>啶氧菌酯·溴菌腈<|>溴菌腈<|>啶氧菌酯·溴菌腈包含有效成分溴菌腈<|>8）
+("relationship"<|>啶氧菌酯·溴菌腈<|>溴菌腈<|>含有有效成分溴菌腈，含量20%，总有效成分含量30%<|>9）
 ##
-("relationship"<|>啶氧菌酯·溴菌腈<|>水乳剂<|>啶氧菌酯·溴菌腈的剂型是水乳剂<|>6）
+("relationship"<|>啶氧菌酯·溴菌腈<|>水乳剂<|>剂型为水乳剂<|>6）
 ##
-("relationship"<|>啶氧菌酯·溴菌腈<|>西瓜<|>啶氧菌酯·溴菌腈登记用于西瓜作物<|>7）
+("relationship"<|>啶氧菌酯·溴菌腈<|>西瓜<|>登记用于西瓜，用药量60-80毫升/亩，安全间隔期14天，每季最多施药2次<|>9）
 ##
-("relationship"<|>西瓜<|>炭疽病<|>西瓜上发生炭疽病，是该产品的防治对象<|>9）
+("relationship"<|>啶氧菌酯·溴菌腈<|>炭疽病<|>用于防治西瓜炭疽病，于发病初期施药，间隔7-10天再施一次<|>9）
 ##
-("relationship"<|>啶氧菌酯·溴菌腈<|>炭疽病<|>啶氧菌酯·溴菌腈用于防治西瓜炭疽病<|>9）
+("relationship"<|>啶氧菌酯·溴菌腈<|>喷雾<|>施用方式为兑水喷雾<|>6）
 ##
-("relationship"<|>啶氧菌酯·溴菌腈<|>PD20201068<|>PD20201068是该产品的农药登记证号<|>10）
+("relationship"<|>啶氧菌酯·溴菌腈<|>PD20201068<|>农药登记证号为PD20201068，核准日期2020-12-25<|>10）
 ##
-("relationship"<|>啶氧菌酯·溴菌腈<|>2020-12-25<|>该产品于2020年12月25日获得核准<|>8）
+("entity"<|>浙江省杭州泰丰化工有限公司<|>ORGANIZATION|登记证持有人，公司位于浙江省杭州）
 ##
-("relationship"<|>西瓜<|>14天<|>西瓜的安全间隔期是14天<|>7）
+("entity"<|>高效氯氟氰菊酯<|>PRODUCT|农药产品，属于菊酯类杀虫剂，具有触杀、胃毒、渗透作用，药效迅速）
 ##
-("relationship"<|>西瓜<|>每季作物最多施药2次<|>西瓜每季最多施药2次<|>7）
+("entity"<|>高效氯氟氰菊酯<|>CHEMICAL|农药有效成分，属于拟除虫菊酯类杀虫剂）
 ##
-("entity"<|>浙江省杭州泰丰化工有限公司<|>ORGANIZATION|登记证持有人，负责该农药产品的注册和生产，公司位于浙江省杭州）
+("entity"<|>微乳剂<|>FORMULATION|农药剂型，用水稀释后呈无色或淡蓝色透明药液，耐雨水冲刷）
 ##
-("entity"<|>高效氯氟氰菊酯<|>PRODUCT|农药名称，是一种杀虫剂微乳剂，有效成分含量为2.5%）
+("entity"<|>甘蓝<|>CROP|十字花科蔬菜作物）
 ##
-("entity"<|>高效氯氟氰菊酯<|>CHEMICAL|有效成分，一种菊酯类杀虫剂，含量为2.5%）
+("entity"<|>菜青虫<|>PEST|鳞翅目害虫，危害甘蓝等十字花科蔬菜）
 ##
-("entity"<|>微乳剂<|>FORMULATION|剂型，一种农药加工形态，用水稀释后呈无色或淡蓝色透明药液）
+("entity"<|>PD20110445<|>ID|农药登记证号，产品在中国合法登记的官方编号）
 ##
-("entity"<|>甘蓝<|>CROP|作物，农药登记用于防治甘蓝上的菜青虫）
-##
-("entity"<|>菜青虫<|>PEST|防治对象，一种鳞翅目害虫，危害甘蓝等十字花科蔬菜）
-##
-("entity"<|>PD20110445<|>ID|农药登记证号，是产品在中国合法登记的官方编号）
-##
-("entity"<|>2011-04-21<|>DATE|核准日期，农药标签首次获得批准的日期）
-##
-("entity"<|>3天<|>CONCEPT|安全间隔期，甘蓝最后一次施药到收获必须间隔的天数）
-##
-("entity"<|>每季最多使用3次<|>CONCEPT|使用限制，标注整个生长季节的最大施药次数）
+("entity"<|>喷雾<|>施用方式|将药液雾化后均匀喷洒的施药方法）
 ##
 ("relationship"<|>浙江省杭州泰丰化工有限公司<|>高效氯氟氰菊酯<|>浙江省杭州泰丰化工有限公司是高效氯氟氰菊酯产品的登记证持有人<|>9）
 ##
-("relationship"<|>高效氯氟氰菊酯<|>高效氯氟氰菊酯<|>高效氯氟氰菊酯产品名称与有效成分名称相同<|>10）
+("relationship"<|>高效氯氟氰菊酯<|>高效氯氟氰菊酯<|>产品名称与有效成分名称相同，有效成分含量2.5%<|>10）
 ##
-("relationship"<|>高效氯氟氰菊酯<|>微乳剂<|>高效氯氟氰菊酯的剂型是微乳剂<|>6）
+("relationship"<|>高效氯氟氰菊酯<|>微乳剂<|>剂型为微乳剂<|>6）
 ##
-("relationship"<|>高效氯氟氰菊酯<|>甘蓝<|>高效氯氟氰菊酯登记用于甘蓝作物<|>7）
+("relationship"<|>高效氯氟氰菊酯<|>甘蓝<|>登记用于甘蓝，用药量25-35克/亩，兑水50千克/亩，安全间隔期3天，每季最多使用3次<|>9）
 ##
-("relationship"<|>甘蓝<|>菜青虫<|>甘蓝上发生菜青虫，是该产品的防治对象<|>9）
+("relationship"<|>高效氯氟氰菊酯<|>菜青虫<|>用于防治甘蓝菜青虫，于低龄幼虫盛发期施药<|>9）
 ##
-("relationship"<|>高效氯氟氰菊酯<|>菜青虫<|>高效氯氟氰菊酯用于防治甘蓝菜青虫<|>9）
+("relationship"<|>高效氯氟氰菊酯<|>喷雾<|>施用方式为兑水喷雾<|>6）
 ##
-("relationship"<|>高效氯氟氰菊酯<|>PD20110445<|>PD20110445是该产品的农药登记证号<|>10）
-##
-("relationship"<|>高效氯氟氰菊酯<|>2011-04-21<|>该产品于2011年4月21日获得核准<|>8）
-##
-("relationship"<|>甘蓝<|>3天<|>甘蓝的安全间隔期是3天<|>7）
-##
-("relationship"<|>甘蓝<|>每季最多使用3次<|>甘蓝每季最多使用3次<|>7）
+("relationship"<|>高效氯氟氰菊酯<|>PD20110445<|>农药登记证号为PD20110445，核准日期2011-04-21<|>10）
 ##
 ("entity"<|>山东胜邦绿野化学有限公司<|>ORGANIZATION|登记证持有人，负责该农药产品的注册和生产，公司位于山东省）
 ##
@@ -294,25 +285,25 @@ PD20110445
 /
 ------------------------
 output:
-("entity"<|>PD20253676<|>标识符<|>这是农药登记证号，是农药产品在中国合法登记的官方唯一编号，用于标识该农药产品已获得批准)
+("entity"<|>PD20253676<|>ID<|>农药登记证号，是农药产品在中国合法登记的官方唯一编号)
 ##
-("entity"<|>黑龙江垦兴生物科技有限公司<|>组织<|>这是该农药产品的登记证持有人，即负责该产品在中国境内注册和合规性的企业，位于黑龙江)
+("entity"<|>黑龙江垦兴生物科技有限公司<|>ORGANIZATION<|>登记证持有人，负责该产品在中国境内注册和合规性的企业，位于黑龙江)
 ##
-("entity"<|>乙·莠·滴辛酯<|>农药产品<|>这是由乙草胺、莠去津和2,4-滴异辛酯三种有效成分复配而成的三元除草剂产品，剂型为悬乳剂，有效成分总含量为77%)
+("entity"<|>乙·莠·滴辛酯<|>PRODUCT<|>由乙草胺、莠去津和2,4-滴异辛酯三种有效成分复配而成的三元除草剂产品，剂型为悬乳剂)
 ##
-("entity"<|>乙草胺<|>农药有效成分<|>该产品中的一种有效成分，含量为42%，属于选择性芽前除草剂，主要用于防除一年生杂草)
+("entity"<|>乙草胺<|>CHEMICAL<|>选择性芽前除草剂，主要用于防除一年生杂草)
 ##
-("entity"<|>莠去津<|>农药有效成分<|>该产品中的一种有效成分，含量为28%，属于选择性内吸除草剂，主要用于防除一年生杂草)
+("entity"<|>莠去津<|>CHEMICAL<|>选择性内吸除草剂，主要用于防除一年生杂草)
 ##
-("entity"<|>2,4-滴异辛酯<|>农药有效成分<|>该产品中的一种有效成分，含量为7%，属于苯氧羧酸类激素型选择性除草剂，主要用于防除一年生杂草)
+("entity"<|>2,4-滴异辛酯<|>CHEMICAL<|>苯氧羧酸类激素型选择性除草剂，主要用于防除一年生杂草)
 ##
-("entity"<|>春玉米田<|>作物/场所<|>这是该农药产品登记的使用场所，即施用的目标作物田，具体为春玉米播种后的田地)
+("entity"<|>春玉米田<|>CROP<|>农药登记的使用场所，春玉米播种后的田地)
 ##
-("entity"<|>一年生杂草<|>防治对象<|>这是该农药产品在目标作物田中要防治的靶标生物，即常见的单双子叶一年生杂草)
+("entity"<|>一年生杂草<|>PEST<|>目标作物田中要防治的靶标生物，包括单双子叶一年生杂草)
 ##
-("entity"<|>土壤喷雾<|>施用方式<|>这是该农药产品登记的使用方法，即在播种后出苗前对土壤表面进行均匀喷雾处理)
+("entity"<|>土壤喷雾<|>METHOD<|>在播种后出苗前对土壤表面进行均匀喷雾处理的施药方法)
 ##
-("entity"<|>核准日期<|>时间点<|>该农药产品的注册核准日期为2025-12-22，表示该产品标签和登记信息获得正式批准的时间)
+("entity"<|>2025-12-22<|>DATE<|>农药产品的注册核准日期)
 ##
 ("relationship"<|>PD20253676<|>黑龙江垦兴生物科技有限公司<|>PD20253676农药登记证号是由黑龙江垦兴生物科技有限公司作为登记证持有人持有和管理的<|>10)
 ##
@@ -330,7 +321,7 @@ output:
 ##
 ("relationship"<|>乙·莠·滴辛酯<|>土壤喷雾<|>乙·莠·滴辛酯产品的施用方式为土壤喷雾，即在播后苗前对土壤进行处理<|>10)
 ##
-("relationship"<|>乙·莠·滴辛酯<|>核准日期<|>乙·莠·滴辛酯产品的标签和登记信息于2025-12-22获得核准<|>8)
+("relationship"<|>乙·莠·滴辛酯<|>2025-12-22<|>乙·莠·滴辛酯产品的标签和登记信息于2025-12-22获得核准<|>8)
 <|COMPLETE|>
 #############################
 

@@ -22,11 +22,15 @@ graphrag_project/cache/
 graphrag_project/logs/
 graphrag_project/deploy/
 graphrag_project/lancedb/
+graphrag_project/bench/
 
 # Test & debug
 graphrag_project/test_deepseek.py
 graphrag_project/find_nan_texts.py
 graphrag_project/graph_demo.html
+
+# App runtime data
+app/data/
 
 # Cloudflare Wrangler
 .wrangler/
