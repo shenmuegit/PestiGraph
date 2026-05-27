@@ -10,13 +10,13 @@ def route(question: str) -> tuple[str, str]:
     q = question.strip()
 
     # Global: 全局汇总、统计、排名类
-    _global_kw = r"有哪些|总结|排名|最多|最少|统计|概况|分布|常见|多少种|占比|趋势|全部|所有|列举"
+    _global_kw = r"有哪些|总结|排名|最多|最少|统计|概况|分布|常见|多少种|占比|趋势|全部|所有|列举|推荐|分类|类型|种类|一览|盘点|汇总|大全|主要"
     m = re.search(_global_kw, q)
     if m:
         return "global", m.group()
 
     # Drift: 跨领域关联、比较类
-    _drift_kw = r"关系|搭配|复配|组合|关联|比较|区别|异同|替代|相似|混用"
+    _drift_kw = r"关系|搭配|复配|组合|关联|比较|区别|异同|替代|相似|混用|配合|协同|拮抗|交替|轮换|互作"
     m = re.search(_drift_kw, q)
     if m:
         return "drift", m.group()

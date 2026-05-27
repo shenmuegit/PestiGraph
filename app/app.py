@@ -1275,8 +1275,12 @@ def build_ui() -> gr.Blocks:
                                 "草甘膦的安全间隔期是多少天？",
                                 "常见的杀菌剂剂型有哪些？",
                                 "三唑酮和哪些成分常搭配使用？",
+                                "杀虫剂的主要类型有哪些？",
+                                "甲维盐和高效氯氟氰菊酯的区别？",
+                                "阿维菌素的登记企业有哪些？",
                             ],
                             inputs=msg_input,
+                            examples_per_page=8,
                         )
                     with gr.Column(scale=1):
                         log_box = gr.HTML(
