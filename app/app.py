@@ -1101,6 +1101,121 @@ function showEdge(eid){
 </html>'''
 
 
+def _build_data_overview_html() -> str:
+    """构建数据概览页面"""
+    import base64
+    import html as html_mod
+
+    try:
+        _init_graphrag()
+        ent_df = _dataframes["entities"]
+        rel_df = _dataframes["relationships"]
+        comm_df = _dataframes["communities"]
+        rpt_df = _dataframes["community_reports"]
+        tu_df = _dataframes["text_units"]
+    except Exception as e:
+        return f"<p>数据加载失败: {html_mod.escape(str(e))}</p>"
+
+    # 实体类型分布
+    type_counts = graph_api._entities_df["type"].value_counts() if graph_api._entities_df is not None else ent_df.get("type", pd.Series()).value_counts()
+    type_colors = {
+        "PRODUCT": "#e74c3c", "ORGANIZATION": "#3498db", "CHEMICAL": "#2ecc71",
+        "FORMULATION": "#f39c12", "CROP": "#27ae60", "PEST": "#e67e22",
+        "ID": "#9b59b6", "DATE": "#8e44ad", "CONCEPT": "#1abc9c",
+        "METHOD": "#e91e63", "OTHER": "#7f8c8d",
+    }
+    type_rows = ""
+    max_count = type_counts.max() if len(type_counts) > 0 else 1
+    for t, c in type_counts.items():
+        color = type_colors.get(str(t), "#7f8c8d")
+        pct = c / max_count * 100
+        type_rows += f'<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{color};margin-right:6px;"></span>{html_mod.escape(str(t))}</td><td>{c}</td><td><div style="background:#2a2a40;border-radius:3px;height:16px;width:100%;"><div style="background:{color};height:100%;width:{pct:.0f}%;border-radius:3px;"></div></div></td></tr>'
+
+    # Top 20 实体
+    top_entities = graph_api.search_entities("", limit=20)
+    top_rows = ""
+    for i, e in enumerate(top_entities, 1):
+        color = type_colors.get(e["type"], "#7f8c8d")
+        desc = html_mod.escape(e["description"][:80] + "..." if len(e["description"]) > 80 else e["description"])
+        top_rows += f'<tr><td>{i}</td><td>{html_mod.escape(e["title"])}</td><td><span style="background:{color};color:#fff;padding:1px 8px;border-radius:10px;font-size:11px;">{html_mod.escape(e["type"])}</span></td><td>{e["degree"]}</td><td style="color:#888;font-size:12px;">{desc}</td></tr>'
+
+    # 社区层级统计
+    level_rows = ""
+    rpt_comms = set(rpt_df["community"].unique())
+    for lv in sorted(comm_df["level"].unique()):
+        lv_comms = comm_df[comm_df["level"] == lv]
+        lv_ids = set(lv_comms["community"].unique())
+        n_total = len(lv_ids)
+        n_rpt = len(lv_ids & rpt_comms)
+        sizes = lv_comms.get("size", pd.Series())
+        size_range = f"{int(sizes.min())}~{int(sizes.max())}" if len(sizes) > 0 else "-"
+        level_rows += f'<tr><td>Level {int(lv)}</td><td>{n_total}</td><td>{n_rpt}</td><td>{n_total - n_rpt}</td><td>{size_range}</td></tr>'
+
+    page = f'''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+body{{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#0f0f1a;color:#d8d8e8;line-height:1.7;padding:30px 40px;overflow-y:auto;}}
+h1{{font-size:22px;color:#fff;margin-bottom:8px;}}
+h2{{font-size:17px;color:#7aa2f7;margin:28px 0 12px;padding-left:10px;border-left:3px solid #7aa2f7;}}
+.subtitle{{color:#888;font-size:13px;margin-bottom:24px;}}
+.stats{{display:flex;gap:14px;flex-wrap:wrap;margin:16px 0;}}
+.stat{{background:#1a1b26;border:1px solid #2a2a40;border-radius:8px;padding:10px 16px;text-align:center;min-width:100px;}}
+.stat .num{{font-size:22px;color:#7aa2f7;font-weight:bold;}}
+.stat .lbl{{font-size:11px;color:#888;margin-top:2px;}}
+.card{{background:#1a1b26;border:1px solid #2a2a40;border-radius:10px;padding:20px 24px;margin:14px 0;}}
+table{{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px;}}
+th{{background:#1e1e35;color:#9aa5ce;padding:8px 12px;text-align:left;border:1px solid #2a2a40;}}
+td{{padding:8px 12px;border:1px solid #2a2a40;color:#c0c0d0;}}
+tr:nth-child(even){{background:#151525;}}
+</style>
+</head>
+<body>
+<h1>数据概览</h1>
+<p class="subtitle">知识图谱数据统计与分布</p>
+
+<div class="stats">
+  <div class="stat"><div class="num">{len(ent_df)}</div><div class="lbl">实体</div></div>
+  <div class="stat"><div class="num">{len(rel_df)}</div><div class="lbl">关系</div></div>
+  <div class="stat"><div class="num">{len(comm_df)}</div><div class="lbl">社区</div></div>
+  <div class="stat"><div class="num">{len(rpt_df)}</div><div class="lbl">社区报告</div></div>
+  <div class="stat"><div class="num">{len(tu_df)}</div><div class="lbl">文本片段</div></div>
+  <div class="stat"><div class="num">{len(type_counts)}</div><div class="lbl">实体类型</div></div>
+</div>
+
+<h2>实体类型分布</h2>
+<div class="card">
+<table>
+<tr><th>类型</th><th>数量</th><th>占比</th></tr>
+{type_rows}
+</table>
+</div>
+
+<h2>Top 20 高关联度实体</h2>
+<div class="card">
+<table>
+<tr><th>#</th><th>实体名</th><th>类型</th><th>关联度</th><th>描述</th></tr>
+{top_rows}
+</table>
+</div>
+
+<h2>社区层级分布</h2>
+<div class="card">
+<table>
+<tr><th>层级</th><th>社区数</th><th>有报告</th><th>无报告</th><th>Size 范围</th></tr>
+{level_rows}
+</table>
+</div>
+
+</body>
+</html>'''
+
+    b64 = base64.b64encode(page.encode("utf-8")).decode("ascii")
+    return f'<iframe src="data:text/html;base64,{b64}" style="width:100%;height:800px;border:none;border-radius:8px;"></iframe>'
+
+
 # ─── Gradio UI ──────────────────────────────────────────────────
 
 def build_ui() -> gr.Blocks:
@@ -1229,7 +1344,11 @@ def build_ui() -> gr.Blocks:
             with gr.Tab("知识图谱"):
                 gr.HTML(value=_build_graph_viewer_html())
 
-            # Tab 3: 查询原理
+            # Tab 3: 数据概览
+            with gr.Tab("数据概览"):
+                gr.HTML(value=_build_data_overview_html())
+
+            # Tab 4: 查询原理
             with gr.Tab("查询原理"):
                 gr.HTML(value=_build_architecture_html())
 
