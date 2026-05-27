@@ -1352,9 +1352,9 @@ def build_ui() -> gr.Blocks:
             with gr.Tab("数据概览"):
                 gr.HTML(value=_build_data_overview_html())
 
-            # Tab 4: 查询原理
-            with gr.Tab("查询原理"):
-                gr.HTML(value=_build_architecture_html())
+        # 查询原理放在 Tabs 外面、页面底部，折叠展示
+        with gr.Accordion("查询原理", open=False):
+            gr.HTML(value=_build_architecture_html())
 
     return app
 
