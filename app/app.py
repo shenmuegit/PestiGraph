@@ -256,16 +256,16 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
 
     return f'''<div class="pr">
 <style>
-.pr{{font-family:"Microsoft YaHei",sans-serif;background:#0f0f1a !important;border-radius:10px;padding:14px;color:#c0c0d0 !important;}}
-.flow{{padding:6px 0 2px;}}
-.flow-row{{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;}}
+.pr{{font-family:"Microsoft YaHei",sans-serif;background:#0f0f1a !important;border-radius:10px;padding:10px;color:#c0c0d0 !important;overflow:hidden;}}
+.flow{{padding:4px 0 2px;overflow-x:auto;}}
+.flow-row{{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;gap:0;}}
 /* 节点 */
-.nd{{display:flex;flex-direction:column;align-items:center;padding:6px 8px;border:1.5px solid #3a3a55;border-radius:8px;background:#1a1b26 !important;min-width:56px;transition:all .3s;position:relative;}}
-.nd-wide{{min-width:85px;}}
-.nd-icon{{font-size:15px;line-height:1;}}
-.nd-text{{font-size:10px;margin-top:2px;white-space:nowrap;color:#c0caf5 !important;}}
-.nd-sub{{font-size:9px;color:#7aa2f7 !important;margin-top:1px;}}
-.nd-bar{{width:65px;height:3px;background:#2a2a40 !important;border-radius:2px;margin-top:3px;overflow:hidden;}}
+.nd{{display:flex;flex-direction:column;align-items:center;padding:3px 5px;border:1.5px solid #3a3a55;border-radius:6px;background:#1a1b26 !important;min-width:0;flex-shrink:1;transition:all .3s;position:relative;}}
+.nd-wide{{min-width:0;}}
+.nd-icon{{font-size:13px;line-height:1;}}
+.nd-text{{font-size:9px;margin-top:1px;white-space:nowrap;color:#c0caf5 !important;}}
+.nd-sub{{font-size:8px;color:#7aa2f7 !important;margin-top:1px;}}
+.nd-bar{{width:50px;height:3px;background:#2a2a40 !important;border-radius:2px;margin-top:2px;overflow:hidden;}}
 .nd-fill{{height:100%;background:#7aa2f7 !important;border-radius:2px;transition:width .3s;}}
 /* 状态 */
 .nd-wait{{opacity:.45;}}
@@ -278,22 +278,22 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
 .nd-err .nd-text{{color:#f7768e !important;}}
 @keyframes glow{{0%,100%{{box-shadow:0 0 8px rgba(122,162,247,.25);}}50%{{box-shadow:0 0 18px rgba(122,162,247,.55);}}}}
 /* 箭头 */
-.ar{{display:flex;align-items:center;width:20px;flex-shrink:0;}}
-.ar-line{{flex:1;height:2px;background:#3a3a55 !important;}}
-.ar-head{{width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:6px solid #3a3a55;}}
+.ar{{display:flex;align-items:center;width:14px;flex-shrink:0;}}
+.ar-line{{flex:1;height:1.5px;background:#3a3a55 !important;}}
+.ar-head{{width:0;height:0;border-top:3px solid transparent;border-bottom:3px solid transparent;border-left:5px solid #3a3a55;}}
 .ar-done .ar-line{{background:#9ece6a !important;}}
 .ar-done .ar-head{{border-left-color:#9ece6a !important;}}
 /* 节点组（黑盒） */
-.nd-group{{display:flex;align-items:center;border:1px dashed #3a3a5588;border-radius:10px;padding:3px 5px;background:#14152240;gap:0;}}
-.ar-mini{{font-size:12px;color:#3a3a55 !important;margin:0 1px;font-weight:bold;}}
+.nd-group{{display:flex;align-items:center;border:1px dashed #3a3a5588;border-radius:8px;padding:2px 4px;background:#14152240;gap:0;}}
+.ar-mini{{font-size:10px;color:#3a3a55 !important;margin:0 1px;font-weight:bold;}}
 .ar-mini.ar-done{{color:#9ece6a !important;}}
 .grp-label{{text-align:center;font-size:8px;color:#565f89 !important;margin-top:2px;}}
 /* Map 扇出 */
-.fan-row{{display:flex;align-items:flex-start;justify-content:center;padding:4px 0 0;}}
-.fan-spacer{{width:220px;flex-shrink:0;}}
-.fan-bracket{{width:2px;height:28px;border-left:2px dashed #3a3a55;margin:0 8px;}}
-.fan-items{{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;}}
-.fan-item{{font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid #3a3a55;background:#1a1b26 !important;color:#c0caf5 !important;white-space:nowrap;}}
+.fan-row{{display:flex;align-items:flex-start;justify-content:center;padding:3px 0 0;}}
+.fan-spacer{{width:170px;flex-shrink:1;}}
+.fan-bracket{{width:2px;height:20px;border-left:2px dashed #3a3a55;margin:0 6px;}}
+.fan-items{{display:flex;gap:3px;flex-wrap:wrap;align-items:flex-start;}}
+.fan-item{{font-size:8px;padding:1px 5px;border-radius:4px;border:1px solid #3a3a55;background:#1a1b26 !important;color:#c0caf5 !important;white-space:nowrap;}}
 .fan-item.nd-done{{border-color:#9ece6a !important;color:#9ece6a !important;background:#1a2520 !important;}}
 .fan-item.nd-active{{border-color:#7aa2f7 !important;color:#7aa2f7 !important;background:#1e2540 !important;animation:glow 2s infinite;}}
 .fan-item.nd-run{{border-color:#565f89;color:#7aa2f7 !important;opacity:.8;}}
