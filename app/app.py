@@ -44,7 +44,8 @@ _llm_call_count = 0
 _llm_total_tokens = 0
 _map_call_count = 0
 _map_total = 0
-_current_stage = "idle"     # idle | route | load | map | reduce | llm | done | error
+_drift_action_count = 0
+_current_stage = "idle"     # idle|route|load|pack|map|reduce|local_search|basic_search|drift_hyde|drift_primer|drift_action|drift_reduce|done|error
 _current_method = "global"  # global | local | drift | basic
 _query_elapsed = 0.0
 _query_start_time = 0.0
@@ -69,6 +70,7 @@ def _get_log_html() -> str:
         method=_current_method,
         map_progress=_map_call_count,
         map_total=_map_total,
+        drift_actions=_drift_action_count,
         llm_calls=_llm_call_count,
         tokens=_llm_total_tokens,
         elapsed=elapsed,
@@ -77,20 +79,26 @@ def _get_log_html() -> str:
 
 
 def _build_pipeline_html(stage, method, map_progress, map_total,
-                         llm_calls, tokens, elapsed, log_lines) -> str:
+                         drift_actions, llm_calls, tokens, elapsed, log_lines) -> str:
     """构建带实时流程图的日志 HTML"""
     import html as html_mod
 
+    # 每种模式的 stage 顺序
+    _STAGE_ORDER = {
+        "global": ["route", "load", "pack", "map", "reduce", "done"],
+        "local":  ["route", "load", "local_search", "done"],
+        "drift":  ["route", "load", "drift_hyde", "drift_primer", "drift_action", "drift_reduce", "done"],
+        "basic":  ["route", "load", "basic_search", "done"],
+    }
+    order = _STAGE_ORDER.get(method, _STAGE_ORDER["local"])
+
     def _cls(node_stage):
-        """根据当前 stage 判断节点 CSS class"""
-        order = ["route", "load", "map", "reduce", "llm", "done"]
         if stage == "idle":
             return "nd-wait"
         if stage == "error":
             return "nd-err"
         if node_stage == stage:
             return "nd-active"
-        # 判断是否已完成
         try:
             ci = order.index(stage)
             ni = order.index(node_stage)
@@ -99,8 +107,6 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
             return "nd-wait"
 
     def _arrow_cls(from_stage):
-        """连线状态"""
-        order = ["route", "load", "map", "reduce", "llm", "done"]
         if stage == "idle":
             return "ar-wait"
         try:
@@ -110,20 +116,25 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
         except ValueError:
             return "ar-wait"
 
+    def _nd(icon, text, node_stage, extra_cls="", sub=""):
+        sub_html = f'<div class="nd-sub">{sub}</div>' if sub else ""
+        return f'<div class="nd {extra_cls} {_cls(node_stage)}"><div class="nd-icon">{icon}</div><div class="nd-text">{text}</div>{sub_html}</div>'
+
+    def _ar(from_stage):
+        return f'<div class="ar {_arrow_cls(from_stage)}"><div class="ar-line"></div><div class="ar-head"></div></div>'
+
     # ── 根据查询模式生成不同流程图 ──
     if method == "global":
         map_pct = int(map_progress / map_total * 100) if map_total > 0 else 0
         map_info = f"{map_progress}/{map_total}" if map_total > 0 else ""
-        map_bar = f'<div class="nd-bar"><div class="nd-fill" style="width:{map_pct}%"></div></div>' if stage in ("map",) and map_total > 0 else ""
-        # 显示 Map 扇出
+        map_bar = f'<div class="nd-bar"><div class="nd-fill" style="width:{map_pct}%"></div></div>' if stage == "map" and map_total > 0 else ""
+
         n_fan = min(map_total, 4) if map_total > 0 else 3
         fan_labels = [f"Map #{i+1}" for i in range(n_fan)]
         if map_total > n_fan:
             fan_labels[-1] = f"... #{map_total}"
-
         fan_items = ""
         for i, fl in enumerate(fan_labels):
-            # Map 子节点状态
             if stage in ("reduce", "done"):
                 fc = "nd-done"
             elif stage == "map" and map_progress > i:
@@ -139,20 +150,22 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
         flow_html = f'''
 <div class="flow">
   <div class="flow-row flow-main">
-    <div class="nd {_cls("route")}"><div class="nd-icon">🔀</div><div class="nd-text">智能路由</div></div>
-    <div class="ar {_arrow_cls("route")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("load")}"><div class="nd-icon">📂</div><div class="nd-text">加载数据</div></div>
-    <div class="ar {_arrow_cls("load")}"><div class="ar-line"></div><div class="ar-head"></div></div>
+    {_nd("🔀", "智能路由", "route")}
+    {_ar("route")}
+    {_nd("📂", "加载数据", "load")}
+    {_ar("load")}
+    {_nd("📦", "报告打包", "pack")}
+    {_ar("pack")}
     <div class="nd nd-wide {_cls("map")}">
       <div class="nd-icon">⚡</div>
       <div class="nd-text">Map 并发分析</div>
       <div class="nd-sub">{map_info}</div>
       {map_bar}
     </div>
-    <div class="ar {_arrow_cls("map")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("reduce")}"><div class="nd-icon">📊</div><div class="nd-text">Reduce 汇总</div></div>
-    <div class="ar {_arrow_cls("reduce")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("done")}"><div class="nd-icon">✅</div><div class="nd-text">回答</div></div>
+    {_ar("map")}
+    {_nd("📊", "Reduce 汇总", "reduce")}
+    {_ar("reduce")}
+    {_nd("✅", "完成", "done")}
   </div>
   <div class="fan-row">
     <div class="fan-spacer"></div>
@@ -162,42 +175,66 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
 </div>'''
 
     elif method == "drift":
+        drift_sub = f"×{drift_actions}" if drift_actions > 0 else ""
         flow_html = f'''
 <div class="flow">
   <div class="flow-row flow-main">
-    <div class="nd {_cls("route")}"><div class="nd-icon">🔀</div><div class="nd-text">智能路由</div></div>
-    <div class="ar {_arrow_cls("route")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("load")}"><div class="nd-icon">📂</div><div class="nd-text">加载数据</div></div>
-    <div class="ar {_arrow_cls("load")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd nd-wide {_cls("llm")}"><div class="nd-icon">🔍</div><div class="nd-text">高层社区定位</div></div>
-    <div class="ar {_arrow_cls("llm")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("llm")}"><div class="nd-icon">🔬</div><div class="nd-text">逐层细化</div></div>
-    <div class="ar {_arrow_cls("llm")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("done")}"><div class="nd-icon">✅</div><div class="nd-text">回答</div></div>
+    {_nd("🔀", "智能路由", "route")}
+    {_ar("route")}
+    {_nd("📂", "加载数据", "load")}
+    {_ar("load")}
+    {_nd("💡", "HyDE 扩展", "drift_hyde")}
+    {_ar("drift_hyde")}
+    {_nd("🎯", "社区定位", "drift_primer")}
+    {_ar("drift_primer")}
+    {_nd("🔬", "逐层检索", "drift_action", sub=drift_sub)}
+    {_ar("drift_action")}
+    {_nd("📊", "汇总生成", "drift_reduce")}
+    {_ar("drift_reduce")}
+    {_nd("✅", "完成", "done")}
   </div>
 </div>'''
 
-    else:  # local / basic
-        if method == "local":
-            mid_icon, mid_text = "🔍", "向量检索"
-            mid2_icon, mid2_text = "🧩", "构建上下文"
-        else:
-            mid_icon, mid_text = "🔍", "文本检索"
-            mid2_icon, mid2_text = "🧩", "拼装片段"
-
+    elif method == "local":
+        grp_cls = _cls("local_search")
         flow_html = f'''
 <div class="flow">
   <div class="flow-row flow-main">
-    <div class="nd {_cls("route")}"><div class="nd-icon">🔀</div><div class="nd-text">智能路由</div></div>
-    <div class="ar {_arrow_cls("route")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("load")}"><div class="nd-icon">📂</div><div class="nd-text">加载数据</div></div>
-    <div class="ar {_arrow_cls("load")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("llm")}"><div class="nd-icon">{mid_icon}</div><div class="nd-text">{mid_text}</div></div>
-    <div class="ar {_arrow_cls("llm")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("llm")}"><div class="nd-icon">{mid2_icon}</div><div class="nd-text">{mid2_text}</div></div>
-    <div class="ar {_arrow_cls("llm")}"><div class="ar-line"></div><div class="ar-head"></div></div>
-    <div class="nd {_cls("done")}"><div class="nd-icon">✅</div><div class="nd-text">回答</div></div>
+    {_nd("🔀", "智能路由", "route")}
+    {_ar("route")}
+    {_nd("📂", "加载数据", "load")}
+    {_ar("load")}
+    <div class="nd-group">
+      <div class="nd {grp_cls}"><div class="nd-icon">🔍</div><div class="nd-text">向量检索</div></div>
+      <div class="ar-mini {_arrow_cls("local_search")}">›</div>
+      <div class="nd {grp_cls}"><div class="nd-icon">🧩</div><div class="nd-text">构建上下文</div></div>
+      <div class="ar-mini {_arrow_cls("local_search")}">›</div>
+      <div class="nd {grp_cls}"><div class="nd-icon">🤖</div><div class="nd-text">LLM 生成</div></div>
+    </div>
+    {_ar("local_search")}
+    {_nd("✅", "完成", "done")}
   </div>
+  <div class="grp-label">GraphRAG 内部处理</div>
+</div>'''
+
+    else:  # basic
+        grp_cls = _cls("basic_search")
+        flow_html = f'''
+<div class="flow">
+  <div class="flow-row flow-main">
+    {_nd("🔀", "智能路由", "route")}
+    {_ar("route")}
+    {_nd("📂", "加载数据", "load")}
+    {_ar("load")}
+    <div class="nd-group">
+      <div class="nd {grp_cls}"><div class="nd-icon">🔍</div><div class="nd-text">文本检索</div></div>
+      <div class="ar-mini {_arrow_cls("basic_search")}">›</div>
+      <div class="nd {grp_cls}"><div class="nd-icon">🤖</div><div class="nd-text">LLM 生成</div></div>
+    </div>
+    {_ar("basic_search")}
+    {_nd("✅", "完成", "done")}
+  </div>
+  <div class="grp-label">GraphRAG 内部处理</div>
 </div>'''
 
     # 统计栏
@@ -212,7 +249,6 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
             f'</div>'
         )
 
-    # 日志行
     log_html = "".join(
         f'<div class="ll">{html_mod.escape(line)}</div>'
         for line in log_lines
@@ -221,19 +257,17 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
     return f'''<div class="pr">
 <style>
 .pr{{font-family:"Microsoft YaHei",sans-serif;background:#0f0f1a !important;border-radius:10px;padding:14px;color:#c0c0d0 !important;}}
-/* ── 流程图 ── */
 .flow{{padding:6px 0 2px;}}
 .flow-row{{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;}}
 /* 节点 */
-.nd{{display:flex;flex-direction:column;align-items:center;padding:6px 8px;border:1.5px solid #3a3a55;border-radius:8px;background:#1a1b26 !important;min-width:62px;transition:all .3s;position:relative;}}
-.nd-wide{{min-width:90px;}}
-.nd-icon{{font-size:16px;line-height:1;}}
-.nd-text{{font-size:10.5px;margin-top:2px;white-space:nowrap;color:#c0caf5 !important;}}
+.nd{{display:flex;flex-direction:column;align-items:center;padding:6px 8px;border:1.5px solid #3a3a55;border-radius:8px;background:#1a1b26 !important;min-width:56px;transition:all .3s;position:relative;}}
+.nd-wide{{min-width:85px;}}
+.nd-icon{{font-size:15px;line-height:1;}}
+.nd-text{{font-size:10px;margin-top:2px;white-space:nowrap;color:#c0caf5 !important;}}
 .nd-sub{{font-size:9px;color:#7aa2f7 !important;margin-top:1px;}}
-/* 进度条 */
-.nd-bar{{width:70px;height:3px;background:#2a2a40 !important;border-radius:2px;margin-top:3px;overflow:hidden;}}
+.nd-bar{{width:65px;height:3px;background:#2a2a40 !important;border-radius:2px;margin-top:3px;overflow:hidden;}}
 .nd-fill{{height:100%;background:#7aa2f7 !important;border-radius:2px;transition:width .3s;}}
-/* 节点状态 */
+/* 状态 */
 .nd-wait{{opacity:.45;}}
 .nd-active{{border-color:#7aa2f7 !important;background:#1e2540 !important;box-shadow:0 0 14px rgba(122,162,247,.35);animation:glow 2s infinite;}}
 .nd-active .nd-text{{color:#7aa2f7 !important;font-weight:bold;}}
@@ -244,14 +278,19 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
 .nd-err .nd-text{{color:#f7768e !important;}}
 @keyframes glow{{0%,100%{{box-shadow:0 0 8px rgba(122,162,247,.25);}}50%{{box-shadow:0 0 18px rgba(122,162,247,.55);}}}}
 /* 箭头 */
-.ar{{display:flex;align-items:center;width:24px;flex-shrink:0;position:relative;}}
+.ar{{display:flex;align-items:center;width:20px;flex-shrink:0;}}
 .ar-line{{flex:1;height:2px;background:#3a3a55 !important;}}
 .ar-head{{width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:6px solid #3a3a55;}}
 .ar-done .ar-line{{background:#9ece6a !important;}}
 .ar-done .ar-head{{border-left-color:#9ece6a !important;}}
+/* 节点组（黑盒） */
+.nd-group{{display:flex;align-items:center;border:1px dashed #3a3a5588;border-radius:10px;padding:3px 5px;background:#14152240;gap:0;}}
+.ar-mini{{font-size:12px;color:#3a3a55 !important;margin:0 1px;font-weight:bold;}}
+.ar-mini.ar-done{{color:#9ece6a !important;}}
+.grp-label{{text-align:center;font-size:8px;color:#565f89 !important;margin-top:2px;}}
 /* Map 扇出 */
 .fan-row{{display:flex;align-items:flex-start;justify-content:center;padding:4px 0 0;}}
-.fan-spacer{{width:202px;flex-shrink:0;}}
+.fan-spacer{{width:220px;flex-shrink:0;}}
 .fan-bracket{{width:2px;height:28px;border-left:2px dashed #3a3a55;margin:0 8px;}}
 .fan-items{{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;}}
 .fan-item{{font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid #3a3a55;background:#1a1b26 !important;color:#c0caf5 !important;white-space:nowrap;}}
@@ -274,18 +313,31 @@ def _build_pipeline_html(stage, method, map_progress, map_total,
 # ─── MiMo 调用耗时监控 ─────────────────────────────────────────
 
 def _detect_llm_phase(kwargs) -> str:
-    """根据 system prompt 内容识别 LLM 调用阶段"""
+    """根据 system/user prompt 内容识别 LLM 调用阶段（含 Drift 子阶段）"""
     messages = kwargs.get("messages") or []
     sys_msg = ""
+    user_msg = ""
     for m in messages:
-        if m.get("role") == "system":
-            sys_msg = m.get("content", "")
-            break
+        role = m.get("role", "")
+        content = m.get("content", "")
+        if role == "system" and not sys_msg:
+            sys_msg = content
+        elif role == "user" and not user_msg:
+            user_msg = content
+    # 检测顺序：从具体到通用，避免误判
     if "rate how relevant" in sys_msg:
         return "评分筛选"
+    if "Create a hypothetical answer" in user_msg:
+        return "Drift HyDE"
+    if "reason over a knowledge graph" in user_msg:
+        return "Drift 定位"
+    if "Data Reports" in sys_msg:
+        return "Drift Reduce"
     if "multiple analysts" in sys_msg or "Analyst Reports" in sys_msg:
-        return "Reduce 汇总"
-    if "the tables" in sys_msg and "{context_data}" not in sys_msg:
+        return "Global Reduce"
+    if "follow_up_queries" in sys_msg:
+        return "Drift 检索"
+    if "the tables" in sys_msg:
         return "Map 分析"
     return "LLM"
 
@@ -294,7 +346,7 @@ class _LLMTimingCallback(litellm.integrations.custom_logger.CustomLogger):
     """记录每次 LLM 调用的耗时和 token 用量"""
 
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
-        global _llm_call_count, _llm_total_tokens, _map_call_count, _current_stage
+        global _llm_call_count, _llm_total_tokens, _map_call_count, _current_stage, _drift_action_count
         elapsed = (end_time - start_time).total_seconds()
         usage = getattr(response_obj, "usage", None)
         _llm_call_count += 1
@@ -303,13 +355,26 @@ class _LLMTimingCallback(litellm.integrations.custom_logger.CustomLogger):
         _llm_total_tokens += in_tok + out_tok
         phase = _detect_llm_phase(kwargs)
         progress = ""
-        if phase == "Map 分析":
-            _map_call_count += 1
-            _current_stage = "map"
-            if _map_total > 0:
-                progress = f" ({_map_call_count}/{_map_total})"
-        elif phase == "Reduce 汇总":
-            _current_stage = "reduce"
+        # 按当前模式分发 stage 更新
+        if _current_method == "global":
+            if phase == "Map 分析":
+                _map_call_count += 1
+                _current_stage = "map"
+                if _map_total > 0:
+                    progress = f" ({_map_call_count}/{_map_total})"
+            elif phase == "Global Reduce":
+                _current_stage = "reduce"
+        elif _current_method == "drift":
+            if phase == "Drift HyDE":
+                _current_stage = "drift_hyde"
+            elif phase == "Drift 定位":
+                _current_stage = "drift_primer"
+            elif phase == "Drift 检索":
+                _drift_action_count += 1
+                _current_stage = "drift_action"
+                progress = f" (×{_drift_action_count})"
+            elif phase == "Drift Reduce":
+                _current_stage = "drift_reduce"
         _log(f"  ↳ [{phase}]{progress} #{_llm_call_count}: {elapsed:.1f}s | in={in_tok}/out={out_tok}")
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
@@ -431,7 +496,7 @@ def chat(message: str, history: list,
          mode_override: str = "自动") -> str:
     """聊天回调：智能路由 + 查询"""
     global _llm_call_count, _llm_total_tokens, _map_call_count, _map_total
-    global _current_stage, _current_method, _query_elapsed, _query_start_time
+    global _current_stage, _current_method, _query_elapsed, _query_start_time, _drift_action_count
 
     if not message.strip():
         return "请输入您的问题。"
@@ -441,6 +506,7 @@ def chat(message: str, history: list,
     _llm_total_tokens = 0
     _map_call_count = 0
     _map_total = 0
+    _drift_action_count = 0
     _query_elapsed = 0.0
     _query_start_time = time.time()
     _query_log.clear()
@@ -480,7 +546,14 @@ def chat(message: str, history: list,
         _log(f"✅ 数据就绪: 实体={ent_n} | 关系={rel_n} | 社区={comm_n} | 报告={report_n} | 文本片段={tu_n}")
 
         # 阶段 3: 查询
-        _current_stage = "map" if method == "global" else "llm"
+        if method == "global":
+            _current_stage = "pack"
+        elif method == "local":
+            _current_stage = "local_search"
+        elif method == "drift":
+            _current_stage = "drift_hyde"
+        else:
+            _current_stage = "basic_search"
         _log(f"🔍 开始 {mode_label} 查询...")
         if method == "global":
             # 统计当前层级的社区报告数
